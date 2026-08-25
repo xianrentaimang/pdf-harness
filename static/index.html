@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF → Markdown 智能转换</title>
+<script src="/lib/marked.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#1a2233; --panel2:#202a3f; --line:#2c3852;
+    --text:#e8edf7; --muted:#8fa0bd; --accent:#4f8cff; --accent2:#38d39f;
+    --danger:#ff6b6b; --warn:#ffc857;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;min-height:100vh}
+  header{padding:22px 28px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:linear-gradient(90deg,#15203a,#1a2233)}
+  header h1{font-size:20px;font-weight:700}
+  header .sub{color:var(--muted);font-size:13px}
+  .tag{background:var(--accent);color:#fff;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600}
+  main{max-width:1200px;margin:0 auto;padding:24px 20px}
+  .upload{border:2px dashed var(--line);border-radius:14px;padding:34px;text-align:center;cursor:pointer;transition:.2s;background:var(--panel)}
+  .upload:hover,.upload.drag{border-color:var(--accent);background:var(--panel2)}
+  .upload .big{font-size:34px}
+  .upload p{color:var(--muted);margin-top:8px;font-size:13px}
+  .upload .b{color:var(--accent)}
+  .upload input{display:none}
+  section{margin-top:26px}
+  h2{font-size:15px;color:var(--muted);margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .tasks{display:flex;flex-direction:column;gap:10px}
+  .task{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .task:hover{border-color:var(--accent)}
+  .task .nm{font-weight:600;flex:1;min-width:180px}
+  .task .nm small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+  .badge{font-size:12px;padding:3px 10px;border-radius:20px;font-weight:600}
+  .b-running{background:rgba(79,140,255,.18);color:var(--accent)}
+  .b-done{background:rgba(56,211,159,.15);color:var(--accent2)}
+  .b-failed{background:rgba(255,107,107,.15);color:var(--danger)}
+  .meta{color:var(--muted);font-size:12px}
+  .btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger:hover{border-color:var(--danger);color:var(--danger)}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .detail{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .dt-head{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .tab{padding:11px 16px;color:var(--muted);cursor:pointer;font-size:13px;border-bottom:2px solid transparent}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .tab-body{padding:18px}
+  .md-render{line-height:1.75;font-size:15px}
+  .md-render h1{border-bottom:1px solid var(--line);padding-bottom:8px;margin:18px 0 12px}
+  .md-render h2{border-bottom:1px solid var(--line);padding-bottom:6px;margin:18px 0 10px;color:#cfe0ff}
+  .md-render h3,.md-render h4{margin:14px 0 8px;color:#d7e5ff}
+  .md-render p{margin:8px 0}
+  .md-render table{border-collapse:collapse;margin:12px 0;width:100%}
+  .md-render th,.md-render td{border:1px solid var(--line);padding:7px 12px;font-size:14px}
+  .md-render th{background:var(--panel2)}
+  .md-render code{background:var(--panel2);padding:2px 6px;border-radius:5px;font-size:13px}
+  .md-render pre{background:#0c111c;padding:14px;border-radius:8px;overflow:auto;margin:10px 0}
+  .md-render pre code{background:none;padding:0}
+  .md-render blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--muted);margin:10px 0}
+  .md-render img{max-width:100%;border-radius:8px;border:1px solid var(--line)}
+  .md-render ul,.md-render ol{padding-left:24px;margin:8px 0}
+  pre.raw{background:#0c111c;padding:16px;border-radius:10px;overflow:auto;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  .pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .pages .pg{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;cursor:zoom-in}
+  .pages .pg img{width:100%;display:block}
+  .pages .pg .lb{padding:5px 8px;font-size:12px;color:var(--muted);background:var(--panel2)}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+  .gallery .gi{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .gallery .gi img{width:100%;display:block;cursor:zoom-in}
+  .gallery .gi .lb{padding:6px 8px;font-size:11px;color:var(--muted);background:var(--panel2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .log{font-family:monospace;font-size:12.5px;background:#0c111c;padding:14px;border-radius:10px;line-height:1.7;color:#9fb3d4;white-space:pre-wrap}
+  .empty{color:var(--muted);text-align:center;padding:40px;font-size:14px}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:99}
+  .lightbox img{max-width:94vw;max-height:92vh;border-radius:8px}
+  .toast{position:fixed;top:18px;right:18px;background:var(--panel2);border:1px solid var(--accent);color:var(--text);padding:12px 18px;border-radius:10px;font-size:13px;z-index:100;display:none}
+  .err{color:var(--danger);font-size:13px;margin-top:10px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .stats{display:flex;gap:14px;color:var(--muted);font-size:12px;flex-wrap:wrap}
+  .stats b{color:var(--text)}
+  @media(max-width:640px){main{padding:14px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>📄 PDF → Markdown 智能转换</h1>
+  <span class="sub">LangGraph 多模态流水线 · 支持文本版 / 影印版 / 混合版</span>
+  <span class="tag">v1.0.0</span>
+</header>
+<main>
+  <div class="upload" id="dropzone">
+    <div class="big">⬆️</div>
+    <p><span class="b">点击选择</span> 或拖拽 PDF 到此处（文本版 / 影印版 / 混合版均可）</p>
+    <p style="font-size:12px">解析后输出 Markdown + 图片资源，可在下方预览与下载</p>
+    <input type="file" id="file" accept=".pdf,application/pdf">
+  </div>
+  <div class="err" id="uperr"></div>
+
+  <section>
+    <h2>📋 解析任务 <span id="taskcount" style="color:var(--accent)"></span></h2>
+    <div class="tasks" id="tasklist"></div>
+  </section>
+
+  <div class="detail" id="detail" style="display:none">
+    <div class="dt-head">
+      <b id="dname" style="font-size:15px"></b>
+      <span class="badge" id="dstatus"></span>
+      <span class="stats">
+        <span>页数 <b id="dpages">-</b></span>
+        <span>图片 <b id="dimages">-</b></span>
+        <span>耗时 <b id="dtime">-</b></span>
+        <span>创建 <b id="dcreated">-</b></span>
+      </span>
+      <div class="btns" style="margin-left:auto">
+        <button class="btn primary" onclick="downloadZip()">⬇ 打包下载</button>
+        <button class="btn" onclick="rerun()">🔄 重新解析</button>
+        <button class="btn danger" onclick="delTask()">🗑 删除</button>
+        <button class="btn" onclick="closeDetail()">✕ 关闭</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab on" data-t="preview">📖 渲染预览</div>
+      <div class="tab" data-t="raw">📝 Markdown 源码</div>
+      <div class="tab" data-t="pages">🗞 页面预览</div>
+      <div class="tab" data-t="gallery">🖼 图片资源</div>
+      <div class="tab" data-t="log">📜 日志</div>
+    </div>
+    <div class="tab-body" id="tabbody"></div>
+  </div>
+</main>
+
+<div class="lightbox" id="lightbox" onclick="this.style.display='none'"><img id="lbimg"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+let tasks=null, current=null, pollTimer=null, timer=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const badge=s=>`<span class="badge b-${s}">${s==='running'?'解析中':s==='done'?'完成':s==='failed'?'失败':'等待'}</span>`;
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(timer);timer=setTimeout(()=>t.style.display="none",2600);}
+
+// ---- 上传 ----
+const dz=$("dropzone");
+dz.onclick=()=>$("file").click();
+["dragover","dragenter"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove("drag");}));
+dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)upload(f);});
+$("file").onchange=e=>{if(e.target.files[0])upload(e.target.files[0]);e.target.value="";};
+async function upload(f){
+  if(!f.name.toLowerCase().endsWith(".pdf")){toast("仅支持 PDF");return;}
+  $("uperr").textContent="";
+  const fd=new FormData();fd.append("file",f);
+  try{
+    const r=await fetch("/api/upload",{method:"POST",body:fd});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.detail||"上传失败");
+    toast("已提交解析："+f.name);
+    refresh();openDetail(j.task_id);
+  }catch(e){$("uperr").textContent="上传失败："+e.message;}
+}
+
+// ---- 任务列表 ----
+async function refresh(){
+  try{
+    const r=await fetch("/api/tasks");const j=await r.json();
+    tasks=j.tasks;render();
+    const anyRunning=tasks.some(t=>t.status==="running");
+    if(anyRunning){if(!pollTimer)pollTimer=setInterval(refresh,3500);}
+    else{if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
+  }catch(e){}
+}
+function render(){
+  $("taskcount").textContent="("+tasks.length+")";
+  const box=$("tasklist");
+  if(!tasks.length){box.innerHTML='<div class="empty">还没有解析任务，先上传一个 PDF 吧</div>';return;}
+  box.innerHTML=tasks.map(t=>`
+    <div class="task">
+      <div class="nm">📄 ${esc(t.name)}<small>${t.created||''} · ${(t.size_kb||0).toFixed(0)} KB · 页数 ${t.total_pages??'-'} · 图片 ${t.images??0}</small></div>
+      ${badge(t.status)}
+      <div class="btns">
+        <button class="btn primary" onclick="openDetail('${t.task_id}')">查看</button>
+        <button class="btn" onclick="downloadZip('${t.task_id}')">下载</button>
+        <button class="btn" onclick="rerun('${t.task_id}')">重跑</button>
+        <button class="btn danger" onclick="delTask('${t.task_id}')">删除</button>
+      </div>
+    </div>`).join("");
+}
+
+// ---- 详情 ----
+async function openDetail(id){
+  current=id;
+  $("detail").style.display="block";
+  $("detail").scrollIntoView({behavior:"smooth",block:"start"});
+  document.querySelectorAll(".tab").forEach((el,i)=>el.classList.toggle("on",i===0));
+  await loadDetail();switchTab("preview");
+  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+  pollTimer=setInterval(async()=>{if(current&&await stillRunning(current)){await loadDetail();}else if(current){await loadDetail();}},3500);
+}
+async function stillRunning(id){
+  try{const r=await fetch("/api/tasks");const j=await r.json();
+    const t=j.tasks.find(x=>x.task_id===id);return t&&t.status==="running";}catch(e){return false;}
+}
+async function loadDetail(){
+  if(!current)return;
+  const r=await fetch("/api/task/"+current);const d=await r.json();
+  $("dname").textContent="📄 "+d.name;
+  $("dstatus").innerHTML=badge(d.status);
+  const man=d.manifest||{};
+  $("dpages").textContent=man.total_pages??"-";
+  $("dimages").textContent=(man.images||[]).length??"-";
+  $("dtime").textContent=(man.elapsed_sec!=null?man.elapsed_sec+"s":"-");
+  $("dcreated").textContent=d.created||"-";
+  window._detail=d;
+  if(d.error)$("uperr").textContent="错误："+d.error;else $("uperr").textContent="";
+  const tab=document.querySelector(".tab.on").dataset.t;
+  renderTab(tab);
+}
+document.querySelectorAll(".tab").forEach(el=>el.onclick=()=>switchTab(el.dataset.t));
+function switchTab(t){
+  document.querySelectorAll(".tab").forEach(el=>el.classList.toggle("on",el.dataset.t===t));
+  renderTab(t);
+}
+function imgPath(f){return "/api/task/"+current+"/images/"+encodeURIComponent(f);}
+async function renderTab(t){
+  const d=window._detail;if(!d)return;
+  const body=$("tabbody");
+  if(t==="preview"){
+    const md=await fetch("/api/task/"+current+"/markdown").then(r=>r.text()).catch(()=>"");
+    const html=marked.parse(md,{breaks:true});
+    const fixed=html.replace(/src="images\/([^"]+)"/g,(m,f)=>`src="${imgPath(f)}"`);
+    body.innerHTML='<div class="md-render">'+fixed+'</div>';
+  }else if(t==="raw"){
+    const md=await fetch("/api/task/"+current+"/markdown").then(r=>r.text()).catch(()=>"(暂无)");
+    body.innerHTML='<pre class="raw">'+esc(md)+'</pre>';
+  }else if(t==="pages"){
+    const n=d.manifest?.total_pages||0;let h="";
+    for(let i=1;i<=n;i++)h+=`<div class="pg" onclick="lb('/api/task/${current}/page/${i}')"><img src="/api/task/${current}/page/${i}"><div class="lb">第 ${i} 页 · ${(d.manifest?.page_types||[])[i-1]||''}</div></div>`;
+    body.innerHTML=h||'<div class="empty">无页面</div>';
+  }else if(t==="gallery"){
+    const imgs=d.manifest?.images||[];
+    if(!imgs.length){body.innerHTML='<div class="empty">本任务未提取到图片</div>';return;}
+    body.innerHTML='<div class="gallery">'+imgs.map(x=>`<div class="gi"><img src="${imgPath(x.file)}" onclick="lb('${imgPath(x.file)}')"><div class="lb">${esc(x.file)} · ${esc(x.alt||'')}</div></div>`).join('')+'</div>';
+  }else if(t==="log"){
+    const logs=(d.manifest?.logs||[]).map(esc).join("\n");
+    body.innerHTML='<div class="log">'+(logs||"(暂无日志)")+'</div>';
+  }
+}
+function lb(src){$("lbimg").src=src;$("lightbox").style.display="flex";}
+
+// ---- 操作 ----
+async function downloadZip(id){id=id||current;window.open("/api/task/"+id+"/download","_blank");}
+async function rerun(id){id=id||current;
+  if(!confirm("确定重新解析该 PDF？将清空之前的输出。"))return;
+  toast("开始重新解析…");await fetch("/api/task/"+id+"/rerun",{method:"POST"});
+  refresh();setTimeout(()=>openDetail(id),800);
+}
+async function delTask(id){id=id||current;
+  if(!confirm("确定删除该任务？"))return;
+  await fetch("/api/task/"+id,{method:"DELETE"});
+  if(id===current)closeDetail();
+  refresh();
+}
+function closeDetail(){$("detail").style.display="none";current=null;if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
+
+refresh();
+</script>
+</body>
+</html>

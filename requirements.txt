@@ -1,0 +1,8 @@
+fastapi>=0.139
+uvicorn>=0.50
+python-multipart>=0.0.9
+pymupdf>=1.28
+langgraph>=1.2
+langchain-openai>=1.6
+openai>=2.38
+Pillow>=12.0
