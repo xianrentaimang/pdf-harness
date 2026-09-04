@@ -1,5 +1,5 @@
 #!/bin/bash
-# PDF → Markdown 转换服务 启动脚本（默认端口 16082）
+# PDF → Markdown 转换服务 启动脚本（默认端口 8000）
 cd "$(dirname "$0")"
 PORT=${PORT:-8000}
 PY=/home/hz1/miniconda3/envs/openclaw/bin/python3
