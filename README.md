@@ -42,12 +42,12 @@ static/index.html     前端单页
 ## 快速开始
 
 ```bash
-./start.sh            # 启动（默认端口 16082）
+./start.sh            # 启动（默认端口 8000）
 ./start.sh stop       # 停止
 ./start.sh restart    # 重启
 ```
 
-访问：`http://<IP>:16082/`
+访问：`http://<IP>:8000/`
 
 ## 生成测试 PDF 并跑管线
 
@@ -60,7 +60,7 @@ static/index.html     前端单页
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| PORT | 16082 | 服务端口 |
+| PORT | 8000 | 服务端口 |
 | RENDER_ZOOM | 2.5 | 页面渲染倍率（72dpi 基准），越大 OCR 越准越慢 |
 | MAX_TOKENS_PAGE | 3000 | 每页生成 token 预算 |
 | OCR_EMBEDDED_IMAGES | 1 | 文本页内嵌图片是否做表格识别/描述 |
